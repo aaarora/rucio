@@ -15,8 +15,8 @@ def sense_optimizer(grouped_jobs):
     for external_host in grouped_jobs:
         for job in grouped_jobs[external_host]:
             for jfile in job['files']:
-                updated_sources = []
                 # update sources with relevant ipv6
+                updated_sources = []
                 for source in jfile['sources']:
                     source_rse_host = _get_hostname(source[1])
                     source_ = list(source)
@@ -27,16 +27,12 @@ def sense_optimizer(grouped_jobs):
                 # update destination with relevant ipv6
                 updated_destinations = []
                 for dest in jfile['destinations']:
-                    dest_rse_host = _get_hostname(dest[1])
-                    dest_ = list(dest)
-                    dest_[1] = dest_[1].replace(dest_rse_host, _resolve_ipv6(dest_rse_host), 1)
-                    updated_destination.append(tuple(dest_))
-                jfile['destinations'] = updated_destinations
-
+                    dest_rse_host = _get_hostname(dest)
+                    jfile['destinations'][0] = dest.replace(dest_rse_host, _resolve_ipv6(dest_rse_host), 1)
 
 #TODO add list of protocol prefixes
-def _get_hostname(source_uri):
-    return source_uri.split('//')[1].split(':')[0]
+def _get_hostname(uri):
+    return uri.split('//')[1].split(':')[0]
 
 #TODO add pseudo DNS name server db
 def _resolve_ipv6(hostname):
