@@ -87,28 +87,33 @@ rucio-admin scope add --account root --scope test
 # Delegate credentials to FTS
 /usr/bin/python2.7 /usr/bin/fts-rest-delegate -vf -s https://fts:8446 -H 9999
 
+a=$RANDOM
+b=$RANDOM
+c=$RANDOM
+d=$RANDOM
+
 # Create initial transfer testing data
-dd if=/dev/urandom of=file1 bs=10M count=1
-dd if=/dev/urandom of=file2 bs=10M count=1
-dd if=/dev/urandom of=file3 bs=10M count=1
-dd if=/dev/urandom of=file4 bs=10M count=1
+dd if=/dev/urandom of=file$a bs=1M count=1
+dd if=/dev/urandom of=file$b bs=1M count=1
+dd if=/dev/urandom of=file$c bs=1M count=1
+dd if=/dev/urandom of=file$d bs=1M count=1
 
-rucio upload --rse XRD1 --scope test file1
-rucio upload --rse XRD1 --scope test file2
-rucio upload --rse XRD2 --scope test file3
-rucio upload --rse XRD2 --scope test file4
+rucio upload --rse XRD1 --scope test file$a
+rucio upload --rse XRD1 --scope test file$b
+rucio upload --rse XRD2 --scope test file$c
+rucio upload --rse XRD2 --scope test file$d
 
-rucio add-dataset test:dataset1
-rucio attach test:dataset1 test:file1 test:file2
+rucio add-dataset test:dataset$a
+rucio attach test:dataset$a test:file$a test:file$b
 
-rucio add-dataset test:dataset2
-rucio attach test:dataset2 test:file3 test:file4
+rucio add-dataset test:dataset$b
+rucio attach test:dataset$b test:file$c test:file$d
 
-rucio add-container test:container
-rucio attach test:container test:dataset1 test:dataset2
+rucio add-container test:container$c
+rucio attach test:container$c test:dataset$a test:dataset$b
 
-rucio add-rule test:container 1 XRD3
+rucio add-rule test:container$c 1 XRD3
 
-# Create complication
-rucio add-dataset test:dataset3
-rucio attach test:dataset3 test:file4
+## Create complication
+#rucio add-dataset test:dataset3
+#rucio attach test:dataset3 test:file4

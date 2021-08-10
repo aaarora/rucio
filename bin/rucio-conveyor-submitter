@@ -92,6 +92,8 @@ Note that attempting the use the ``--vos`` argument when in single-VO mode will 
     ''')
     parser.add_argument("--run-once", action="store_true", default=False,
                         help='One iteration only')
+    parser.add_argument("--sense", action="store_true", default=False,
+                        help='Use SENSE optimization')
     parser.add_argument("--total-threads", action="store", default=1, type=int,
                         help='Concurrency control: total number of threads per process')
     parser.add_argument("--bulk", action="store", default=100, type=int,
@@ -134,6 +136,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     try:
         run(once=args.run_once,
+            sense=args.sense,
             bulk=args.bulk,
             group_bulk=args.group_bulk,
             group_policy=args.group_policy,

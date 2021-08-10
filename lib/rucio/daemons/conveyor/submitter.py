@@ -61,6 +61,7 @@ from rucio.core.monitor import record_counter, record_timer
 from rucio.daemons.conveyor.common import submit_transfer, bulk_group_transfer, get_conveyor_rses, USER_ACTIVITY
 from rucio.db.sqla.constants import RequestState
 
+from rucio.extensions.sense import sense_optimizer
 graceful_stop = threading.Event()
 
 USER_TRANSFERS = config_get('conveyor', 'user_transfers', False, None)
@@ -71,7 +72,7 @@ TRANSFER_TYPE = config_get('conveyor', 'transfertype', False, 'single')
 GET_TRANSFERS_COUNTER = Counter('rucio_daemons_conveyor_submitter_get_transfers', 'Number of transfers retrieved')
 
 
-def submitter(once=False, rses=None, partition_wait_time=10,
+def submitter(once=False, sense=False, rses=None, partition_wait_time=10,
               bulk=100, group_bulk=1, group_policy='rule', source_strategy=None,
               activities=None, sleep_time=600, max_sources=4, retry_other_fts=False, archive_timeout_override=None,
               filter_transfertool=FILTER_TRANSFERTOOL, transfertool=TRANSFER_TOOL, transfertype=TRANSFER_TYPE):
@@ -187,6 +188,11 @@ def submitter(once=False, rses=None, partition_wait_time=10,
                 grouped_jobs = bulk_group_transfer(transfers, group_policy, group_bulk, source_strategy, max_time_in_queue, group_by_scope=user_transfer, archive_timeout_override=archive_timeout_override)
                 record_timer('daemons.conveyor.transfer_submitter.bulk_group_transfer', (time.time() - start_time) * 1000 / (len(transfers) if transfers else 1))
 
+                # optimize transfer with sense
+                if sense:
+                  logger(logging.DEBUG,"Optimizing transfers for desired throughput")
+                  sense_optimizer(grouped_jobs)
+                
                 logger(logging.INFO, 'Starting to submit transfers for %s', activity)
 
                 if transfertool in ['fts3', 'mock']:
@@ -251,7 +257,7 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, group_bulk=1, group_policy='rule', mock=False,
+def run(once=False, sense=False, group_bulk=1, group_policy='rule', mock=False,
         rses=None, include_rses=None, exclude_rses=None, vos=None, bulk=100, source_strategy=None,
         activities=None, exclude_activities=None, sleep_time=600, max_sources=4, retry_other_fts=False,
         archive_timeout_override=None, total_threads=1):
@@ -294,6 +300,7 @@ def run(once=False, group_bulk=1, group_policy='rule', mock=False,
                 activities.remove(activity)
 
     threads = [threading.Thread(target=submitter, kwargs={'once': once,
+                                                          'sense': sense, 
                                                           'rses': working_rses,
                                                           'bulk': bulk,
                                                           'group_bulk': group_bulk,
