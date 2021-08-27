@@ -46,7 +46,7 @@ def _get_hostname(uri):
 #TODO add pseudo DNS name server db
 def _resolve_ipv6(hostname, total_file_size, cache):
     if hostname in cache:
-       ipv6 = cache['hostname']
+       ipv6 = cache[hostname]
        logging.info('Found hostname in cached list... Replaced %s for IPv6 %s', hostname, ipv6)
        return ipv6
     ipv6 = requests.get(f'http://flask:5000/query?hostname={hostname}&total_file_size={total_file_size}').text
