@@ -61,7 +61,7 @@ from rucio.core.monitor import record_counter, record_timer
 from rucio.daemons.conveyor.common import submit_transfer, bulk_group_transfer, get_conveyor_rses, USER_ACTIVITY
 from rucio.db.sqla.constants import RequestState
 
-from rucio.extensions.sense import sense_optimizer
+from rucio.extensions.dmm import sense_optimizer
 graceful_stop = threading.Event()
 
 USER_TRANSFERS = config_get('conveyor', 'user_transfers', False, None)

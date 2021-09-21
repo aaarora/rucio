@@ -271,6 +271,7 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
                   'metadata': transfer['file_metadata'],
                   'filesize': int(transfer['file_metadata']['filesize']),
                   'checksum': None,
+                  'rule_id': transfer['rule_id'],
                   'verify_checksum': verify_checksum,
                   'selection_strategy': source_strategy if source_strategy else activity_source_strategy.get(str(transfer['file_metadata']['activity']), default_source_strategy),
                   'request_type': transfer['file_metadata'].get('request_type', None),
