@@ -63,4 +63,4 @@ def _update_cache_with_sense_optimization(job_file, total_file_size, cache):
             hostnames.remove(host)
     hostnames_comma_seperated = ','.join(hostnames)
     ipv6 = requests.get(f'http://flask:5000/sense?hostnames={hostnames_comma_seperated}&total_file_size={total_file_size}&rule_id={rule_id}').text.split(',')
-    cache.update(dict(zip(hostnames, ipv6))
+    cache.update(dict(zip(hostnames, ipv6)))
