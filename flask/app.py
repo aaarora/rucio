@@ -4,11 +4,11 @@ app = Flask(__name__)
 
 @app.route('/sense')
 def sense():
-    hostname = request.args.get('hostnames')
+    hostnames = request.args.get('hostnames')
     total_file_size = request.args.get('total_file_size')
     rule_id = request.args.get('rule_id')
     # <store rule_id and ipv6, block allocated ips>
-    return '127.0.0.1'
+    return ",".join(['127.0.0.1' for host in hostnames.split(',')]) 
 
 @app.route('/free')
 def free()
