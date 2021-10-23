@@ -34,6 +34,8 @@ from rucio.core.request import preparer_update_requests, reduce_requests, sort_r
 from rucio.core.transfer import __list_transfer_requests_and_source_replicas
 from rucio.db.sqla.constants import RequestState
 
+from rucio.extensions.dmm import sense_preparer
+
 if TYPE_CHECKING:
     from typing import Optional
     from sqlalchemy.orm import Session
@@ -49,18 +51,19 @@ def stop():
     graceful_stop.set()
 
 
-def run(once=False, threads=1, sleep_time=10, bulk=100):
+def run(once=False, threads=1, sleep_time=10, bulk=100, sense=False):
     """
     Running the preparer daemon either once or by default in a loop until stop is called.
     """
     setup_logging()
+    print(f"hello, sense is {sense}")
 
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
     def preparer_kwargs():
         # not sure if this is needed for threading.Thread, but it always returns a fresh dictionary
-        return {'once': once, 'sleep_time': sleep_time, 'bulk': bulk}
+        return {'once': once, 'sleep_time': sleep_time, 'bulk': bulk, 'sense': sense}
 
     threads = [threading.Thread(target=preparer, name=f'conveyor-preparer-{i}', kwargs=preparer_kwargs(), daemon=True) for i in range(threads)]
     for thr in threads:
@@ -86,7 +89,7 @@ def run(once=False, threads=1, sleep_time=10, bulk=100):
     logging.info('conveyor-preparer: stopped')
 
 
-def preparer(once, sleep_time, bulk):
+def preparer(once, sleep_time, bulk, sense):
     # Make an initial heartbeat so that all instanced daemons have the correct worker number on the next try
     executable = 'conveyor-preparer'
     hostname = socket.gethostname()
@@ -111,7 +114,9 @@ def preparer(once, sleep_time, bulk):
             daemon_logger = formatted_logger(logging.log, prefix + '%s')
 
             try:
-                updated_msg = run_once(total_workers=total_workers, worker_number=worker_number, limit=bulk, logger=daemon_logger)
+                print(f"hello, sense is {sense}")
+                updated_msg = run_once(total_workers=total_workers, worker_number=worker_number, limit=bulk, logger=daemon_logger, sense=sense)
+                print(f"drumroll... {updated_msg}")
             except RucioException:
                 daemon_logger(logging.ERROR, 'errored with a RucioException, retrying later', exc_info=True)
                 updated_msg = 'errored'
@@ -133,7 +138,7 @@ def preparer(once, sleep_time, bulk):
         heartbeat.die(executable=executable, hostname=hostname, pid=pid, thread=current_thread)
 
 
-def run_once(total_workers: int = 0, worker_number: int = 0, limit: "Optional[int]" = None, logger=logging.log, session: "Optional[Session]" = None) -> str:
+def run_once(total_workers: int = 0, worker_number: int = 0, limit: "Optional[int]" = None, logger=logging.log, session: "Optional[Session]" = None, sense: bool = False) -> str:
     req_sources = __list_transfer_requests_and_source_replicas(
         total_workers=total_workers,
         worker_number=worker_number,
@@ -143,6 +148,9 @@ def run_once(total_workers: int = 0, worker_number: int = 0, limit: "Optional[in
     )
     if not req_sources:
         return 'had nothing to do'
+
+    if sense:
+        sense_preparer(req_sources)
 
     transfertool_filter = get_transfertool_filter(lambda rse_id: get_supported_transfertools(rse_id=rse_id, session=session))
     requests = reduce_requests(req_sources, [rse_lookup_filter, sort_requests_minimum_distance, transfertool_filter], logger=logger)
