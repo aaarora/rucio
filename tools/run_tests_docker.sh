@@ -55,6 +55,10 @@ do
 done
 export RUCIO_HOME=/opt/etc/test
 
+# DEBUG
+nl=$'\n'
+sed -i "s/\[conveyor\]/\[conveyor\]""\\${nl}""use_preparer\ \=\ True/g" etc/rucio.cfg
+
 echo 'Clearing memcache'
 echo flush_all > /dev/tcp/127.0.0.1/11211
 
