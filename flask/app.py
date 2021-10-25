@@ -1,6 +1,6 @@
 import json
 import os
-from flask import Flask, request
+from flask import Flask, request, jsonify
 
 class Cache:
     def __init__(self, hardcopy_name="dmm.cache.json", clear_on_init=False):
@@ -49,28 +49,25 @@ app = Flask(__name__)
 
 @app.route("/prep", methods=["GET", "POST"])
 def prep():
-    cache.update(request.json)
+    for rule_id, rule_data in request.json:
+        total_byte_count = rule_data["total_byte_count"]
+        # TODO: replace the dummy code below with some smarter prototype ipv6 allocation
+        #       should be some func(total_byte_count)
+        rule_data["sense_ipv6_map"] = {rse_id: "127.0.0.1" for rse_id in rule_data["source_rse_ids"]}
+        rule_data["sense_ipv6_map"][rule_data["dest_rse_id"]] = "127.0.0.1"
+        # Update cache
+        cache[rule_id] = rule_data
     return
 
 @app.route("/sense")
 def sense():
-    rule_data = cache[request.args.get("rule_id")]
-    total_byte_count = rule_Data["total_byte_count"]
-    src_rses, dest_rses = [], []
-    for f in rule_data["files"]:
-        dest_rses.append(f["dest_rse"])
-        src_rses += f["sources"]
-    # TODO: replace the dummy code below with some smarter prototype ipv6 allocation
-    # Dummy ipv6 replacement
-    hostnames = src_rses + dest_rses
-    return ",".join(["127.0.0.1" for host in hostnames.split(",")]) 
+    return cache[request.args.get("rule_id")]["sense_ipv6_map"]
 
 @app.route("/free")
 def free():
     # TODO: add code to free allocated ips when recieve message of successful / failed transfer
-    try:
-        cache.delete(request.args.get("rule_id"))
-    except KeyError as e:
-        # TODO: add some kind of responsible error handling here
-        return
+    # TODO: add error handling for key not in cache; currently does nothing if key not in cache
+    rule_id = request.args.get("rule_id")
+    if rule_id in cache.keys():
+        cache.delete(rule_id)
     return
