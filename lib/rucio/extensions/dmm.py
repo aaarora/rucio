@@ -21,12 +21,15 @@ def sense_preparer(requests_with_sources):
             "source_rse_ids": [src.rse.id for src in rws.sources],
             "dest_rse_id": rws.dest_rse.id,
             "byte_count": rws.byte_count,
-            "priority": rws.attributes["priority"]
         }
-        # Update transfer entry (sourted by rule ID)
+        # Update job entry (sorted by rule ID)
         rule_id = rws.rule_id
         if rule_id not in jobs.keys():
-            jobs[rule_id] = {"files": [], "total_byte_count": 0}
+            jobs[rule_id] = {
+                "files": [], 
+                "total_byte_count": 0, 
+                "priority": rws.attributes["priority"]
+            }
         jobs[rule_id]["files"].append(metadata)
         jobs[rule_id]["total_byte_count"] += rws.byte_count
 
