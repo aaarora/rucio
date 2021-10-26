@@ -49,15 +49,18 @@ app = Flask(__name__)
 
 @app.route("/prep", methods=["GET", "POST"])
 def prep():
-    for rule_id, rule_data in request.json:
-        total_byte_count = rule_data["total_byte_count"]
-        # TODO: replace the dummy code below with some smarter prototype ipv6 allocation
-        #       should be some func(total_byte_count)
-        rule_data["sense_ipv6_map"] = {rse_id: "127.0.0.1" for rse_id in rule_data["source_rse_ids"]}
-        rule_data["sense_ipv6_map"][rule_data["dest_rse_id"]] = "127.0.0.1"
-        # Update cache
-        cache[rule_id] = rule_data
-    return
+    jobs = request.json
+    print(jobs)
+    for rule_id, job in jobs.items():
+        total_byte_count = job["total_byte_count"]
+        # Dummy ipv6 allocation
+        jobs[rule_id]["sense_ipv6_map"] = {}
+        for file_data in job["files"]:
+            jobs[rule_id]["sense_ipv6_map"].update({s: "127.0.0.1" for s in file_data["source_rse_ids"]})
+            jobs[rule_id]["sense_ipv6_map"][file_data["dest_rse_id"]] = "127.0.0.1"
+
+    cache.update(jobs)
+    return ("", 204)
 
 @app.route("/sense")
 def sense():
@@ -70,4 +73,4 @@ def free():
     rule_id = request.args.get("rule_id")
     if rule_id in cache.keys():
         cache.delete(rule_id)
-    return
+    return ("", 204)
