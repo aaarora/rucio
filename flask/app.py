@@ -50,7 +50,6 @@ app = Flask(__name__)
 @app.route("/prep", methods=["GET", "POST"])
 def prep():
     jobs = request.json
-    print(jobs)
     for rule_id, job in jobs.items():
         total_byte_count = job["total_byte_count"]
         # Dummy ipv6 allocation
