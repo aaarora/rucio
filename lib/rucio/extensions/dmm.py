@@ -7,7 +7,7 @@ import logging
 
 cache = {}
 
-def sense_preparer(requests_with_sources, extra_metadata=["request_id", "name"]):
+def sense_preparer(requests_with_sources):
     """
     Parse RequestWithSources objects collected by the preparer daemon and communicate relevant info to DMM
 
@@ -15,23 +15,20 @@ def sense_preparer(requests_with_sources, extra_metadata=["request_id", "name"])
     """
     # Collect requested transfers
     jobs = {}
-    for req in requests_with_sources:
-        print(req.attributes)
-        rule_id = str(req.rule_id)
+    for rws in requests_with_sources:
         # Collect metadata
         metadata = {
-            "source_rse_ids": [src.rse.id for src in req.sources],
-            "dest_rse_id": req.dest_rse.id,
-            "byte_count": req.byte_count,
-            "priority": 0 # FIXME: add actual priority
+            "source_rse_ids": [src.rse.id for src in rws.sources],
+            "dest_rse_id": rws.dest_rse.id,
+            "byte_count": rws.byte_count,
+            "priority": rws.attributes["priority"]
         }
-        for k in extra_metadata:
-            metadata[k] = str(req.__dict__[k])
         # Update transfer entry (sourted by rule ID)
+        rule_id = rws.rule_id
         if rule_id not in jobs.keys():
             jobs[rule_id] = {"files": [], "total_byte_count": 0}
         jobs[rule_id]["files"].append(metadata)
-        jobs[rule_id]["total_byte_count"] += req.byte_count
+        jobs[rule_id]["total_byte_count"] += rws.byte_count
 
     # Communicate the collected information to DMM
     response = requests.post("http://flask:5000/prep", json=jobs)
@@ -57,13 +54,13 @@ def sense_optimizer(grouped_jobs):
                 #       this the actual source used for the transfer?
                 for i, (src_name, src_url, src_id, src_retries) in enumerate(file_data["sources"]):
                     src_host = __get_hostname(src_url)
-                    src_sense_url = src_url.replace(src_host, cache[src_id], 1)
+                    src_sense_url = src_url.replace(src_host, sense_ipv6_map[src_id], 1)
                     file_data["sources"][i] = (src_name, src_sense_url, src_id, src_retries)
                 # Update destination
                 dst_id = file_data["metadata"]["dest_rse_id"]
                 dst_url = file_data["destinations"][0]
                 dst_host = __get_hostname(dst_url)
-                sense_url = url.replace(dst_host, cache[dst_id], 1)
+                sense_url = dst_url.replace(dst_host, sense_ipv6_map[dst_id], 1)
                 file_data["destinations"] = [sense_url]
 
 def free_links(rule_id):
@@ -74,7 +71,6 @@ def __get_hostname(uri):
     return uri.split("//")[1].split(":")[0]
 
 # replacing sense with psudo dns server in flask (image in main dir)
-# def _update_cache_with_sense_optimization(file_data, total_file_size, cache):
 def __update_cache_with_sense_optimization(rule_id):
     global cache
     response = requests.get(f"http://flask:5000/sense?rule_id={rule_id}").json()
