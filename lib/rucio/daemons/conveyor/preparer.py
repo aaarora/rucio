@@ -56,7 +56,6 @@ def run(once=False, threads=1, sleep_time=10, bulk=100, sense=False):
     Running the preparer daemon either once or by default in a loop until stop is called.
     """
     setup_logging()
-    print(f"hello, sense is {sense}")
 
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
@@ -114,9 +113,7 @@ def preparer(once, sleep_time, bulk, sense):
             daemon_logger = formatted_logger(logging.log, prefix + '%s')
 
             try:
-                print(f"hello, sense is {sense}")
                 updated_msg = run_once(total_workers=total_workers, worker_number=worker_number, limit=bulk, logger=daemon_logger, sense=sense)
-                print(f"drumroll... {updated_msg}")
             except RucioException:
                 daemon_logger(logging.ERROR, 'errored with a RucioException, retrying later', exc_info=True)
                 updated_msg = 'errored'
