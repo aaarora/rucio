@@ -47,6 +47,8 @@ def get_parser():
                         help='Seconds to sleep if few requests')
     parser.add_argument('--activities', nargs='+', type=str,
                         help='Explicit list of activities to include')
+    parser.add_argument("--sense", action="store_true", default=False, 
+                        help='Use SENSE optimization')
     return parser
 
 
@@ -60,6 +62,7 @@ if __name__ == "__main__":
             sleep_time=args.sleep_time,
             activities=args.activities,
             db_bulk=args.db_bulk,
-            bulk=args.bulk)
+            bulk=args.bulk,
+            sense=args.sense)
     except KeyboardInterrupt:
         stop()
