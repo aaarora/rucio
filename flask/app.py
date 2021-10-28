@@ -1,6 +1,22 @@
 import json
 import os
-from flask import Flask, request, jsonify
+from flask import Flask, request
+
+class NONSENSE:
+    """
+    Name-Only Nonfunctional Software defined networking (SDN) for End-to-end Networked Science at the Exascale 
+    """
+    def __init__(self):
+        self.dummy_link = "127.0.0.1"
+
+    def get_links(self, rule_id, src_ids, dst_id, total_byte_count, priority):
+        return [self.dummy_link for _ in src_ids], self.dummy_link
+
+    def update_links(self):
+        return
+
+    def free_links(self, rse_id):
+        return
 
 class Cache:
     def __init__(self, hardcopy_name="dmm.cache.json", clear_on_init=False):
@@ -43,33 +59,45 @@ class Cache:
         with open(self.hardcopy, "w") as f_out:
             json.dump(self.__content, f_out)
 
-cache = Cache(clear_on_init=True)
+dmm_cache = Cache(clear_on_init=True)
+sense = NONSENSE()
 
 app = Flask(__name__)
 
-@app.route("/prep", methods=["GET", "POST"])
-def prep():
-    jobs = request.json
-    for rule_id, job in jobs.items():
-        total_byte_count = job["total_byte_count"]
-        # Dummy ipv6 allocation
-        jobs[rule_id]["sense_ipv6_map"] = {}
-        for file_data in job["files"]:
-            jobs[rule_id]["sense_ipv6_map"].update({s: "127.0.0.1" for s in file_data["source_rse_ids"]})
-            jobs[rule_id]["sense_ipv6_map"][file_data["dest_rse_id"]] = "127.0.0.1"
+@app.route("/cache", methods=["GET", "POST"])
+def cache():
+    if request.method == "POST":
+        jobs = request.json
+        for rule_id, job in jobs.items():
+            jobs[rule_id]["sense_ipv6_map"] = {}
+            for file_data in job["files"]:
+                # Dummy ipv6 allocation
+                src_links, dst_link = sense.get_links(
+                    rule_id,
+                    file_data["source_rse_ids"],
+                    file_data["dest_rse_id"],
+                    job["total_byte_count"],
+                    job["priority"]
+                )
+                jobs[rule_id]["sense_ipv6_map"].update(
+                    dict(zip(file_data["source_rse_ids"], src_links))
+                )
+                jobs[rule_id]["sense_ipv6_map"][file_data["dest_rse_id"]] = dst_link
 
-    cache.update(jobs)
-    return ("", 204)
+        dmm_cache.update(jobs)
+        return ("", 204)
+    else:
+        rule_id = request.args.get("rule_id")
+        metadata_key = request.args.get("metadata_key", "")
+        if metadata_key == "":
+            return dmm_cache[rule_id]
+        else:
+            return dmm_cache[rule_id][metadata_key]
 
-@app.route("/sense")
-def sense():
-    return cache[request.args.get("rule_id")]["sense_ipv6_map"]
-
-@app.route("/free")
+@app.route("/free", methods=["POST"])
 def free():
-    # TODO: add code to free allocated ips when recieve message of successful / failed transfer
-    # TODO: add error handling for key not in cache; currently does nothing if key not in cache
     rule_id = request.args.get("rule_id")
-    if rule_id in cache.keys():
-        cache.delete(rule_id)
+    if rule_id in dmm_cache.keys():
+        sense.free_links(rule_id)
+        dmm_cache.delete(rule_id)
     return ("", 204)
