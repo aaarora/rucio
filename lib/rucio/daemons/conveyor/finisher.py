@@ -60,6 +60,8 @@ from rucio.db.sqla.constants import RequestState, RequestType, ReplicaState, Bad
 from rucio.db.sqla.session import transactional_session
 from rucio.rse import rsemanager
 
+from rucio.extensions.dmm import sense_finisher
+
 try:
     from urlparse import urlparse  # py2
 except ImportError:
@@ -70,7 +72,7 @@ graceful_stop = threading.Event()
 region = make_region().configure('dogpile.cache.memory', expiration_time=3600)
 
 
-def finisher(once=False, sleep_time=60, activities=None, bulk=100, db_bulk=1000, partition_wait_time=10):
+def finisher(once=False, sleep_time=60, activities=None, bulk=100, db_bulk=1000, partition_wait_time=10, sense=False):
     """
     Main loop to update the replicas and rules based on finished requests.
     """
@@ -139,7 +141,7 @@ def finisher(once=False, sleep_time=60, activities=None, bulk=100, db_bulk=1000,
                 for chunk in chunks(reqs, bulk):
                     try:
                         time3 = time.time()
-                        __handle_requests(chunk, suspicious_patterns, retry_protocol_mismatches, logger=logger)
+                        __handle_requests(chunk, suspicious_patterns, retry_protocol_mismatches, logger=logger, sense=sense)
                         record_timer('daemons.conveyor.finisher.handle_requests', (time.time() - time3) * 1000 / (len(chunk) if chunk else 1))
                         record_counter('daemons.conveyor.finisher.handle_requests', len(chunk))
                     except Exception as error:
@@ -179,7 +181,7 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, total_threads=1, sleep_time=60, activities=None, bulk=100, db_bulk=1000):
+def run(once=False, total_threads=1, sleep_time=60, activities=None, bulk=100, db_bulk=1000, sense=False):
     """
     Starts up the conveyer threads.
     """
@@ -190,7 +192,7 @@ def run(once=False, total_threads=1, sleep_time=60, activities=None, bulk=100, d
 
     if once:
         logging.log(logging.INFO, 'executing one finisher iteration only')
-        finisher(once=once, activities=activities, bulk=bulk, db_bulk=db_bulk)
+        finisher(once=once, activities=activities, bulk=bulk, db_bulk=db_bulk, sense=sense)
 
     else:
 
@@ -198,7 +200,8 @@ def run(once=False, total_threads=1, sleep_time=60, activities=None, bulk=100, d
         threads = [threading.Thread(target=finisher, kwargs={'sleep_time': sleep_time,
                                                              'activities': activities,
                                                              'db_bulk': db_bulk,
-                                                             'bulk': bulk}) for _ in range(0, total_threads)]
+                                                             'bulk': bulk,
+                                                             'sense': sense}) for _ in range(0, total_threads)]
 
         [thread.start() for thread in threads]
 
@@ -209,7 +212,7 @@ def run(once=False, total_threads=1, sleep_time=60, activities=None, bulk=100, d
             threads = [thread.join(timeout=3.14) for thread in threads if thread and thread.is_alive()]
 
 
-def __handle_requests(reqs, suspicious_patterns, retry_protocol_mismatches, logger=logging.log):
+def __handle_requests(reqs, suspicious_patterns, retry_protocol_mismatches, logger=logging.log, sense=False):
     """
     Used by finisher to handle terminated requests,
 
@@ -313,7 +316,7 @@ def __handle_requests(reqs, suspicious_patterns, retry_protocol_mismatches, logg
                                                                                                                req['dest_rse_id'],
                                                                                                                str(error)))
 
-    __handle_terminated_replicas(replicas, logger=logger)
+    __handle_terminated_replicas(replicas, logger=logger, sense=sense)
 
 
 def __get_undeterministic_rses(logger=logging.log):
@@ -367,7 +370,7 @@ def __check_suspicious_files(req, suspicious_patterns, logger=logging.log):
     return is_suspicious
 
 
-def __handle_terminated_replicas(replicas, logger=logging.log):
+def __handle_terminated_replicas(replicas, logger=logging.log, sense=False):
     """
     Used by finisher to handle available and unavailable replicas.
 
@@ -403,6 +406,9 @@ def __handle_terminated_replicas(replicas, logger=logging.log):
                     logger(logging.ERROR, "Could not finish handling replicas on %s rule %s", req_type, rule_id, exc_info=True)
             except Exception as error:
                 logger(logging.ERROR, "Something unexpected happened when handling replicas on %s rule %s: %s", req_type, rule_id, str(error))
+
+            if sense:
+                sense_finisher(rule_id)
 
 
 @transactional_session
