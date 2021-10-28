@@ -7,6 +7,10 @@ import logging
 
 cache = {}
 
+def sense_finisher(rule_id):
+    requests.post(f"http://flask:5000/free?rule_id={rule_id}")
+
+
 def sense_preparer(requests_with_sources):
     """
     Parse RequestWithSources objects collected by the preparer daemon and communicate relevant info to DMM
@@ -16,7 +20,7 @@ def sense_preparer(requests_with_sources):
     # Collect requested transfers
     jobs = {}
     for rws in requests_with_sources:
-        # Collect metadata
+        # Collect file-level metadata
         metadata = {
             "source_rse_ids": [src.rse.id for src in rws.sources],
             "dest_rse_id": rws.dest_rse.id,
@@ -25,6 +29,7 @@ def sense_preparer(requests_with_sources):
         # Update job entry (sorted by rule ID)
         rule_id = rws.rule_id
         if rule_id not in jobs.keys():
+            # Collect/initialize rule-level metadata
             jobs[rule_id] = {
                 "files": [], 
                 "total_byte_count": 0, 
@@ -34,7 +39,7 @@ def sense_preparer(requests_with_sources):
         jobs[rule_id]["total_byte_count"] += rws.byte_count
 
     # Communicate the collected information to DMM
-    response = requests.post("http://flask:5000/prep", json=jobs)
+    response = requests.post("http://flask:5000/cache", json=jobs)
 
 def sense_optimizer(grouped_jobs):
     """
@@ -66,9 +71,6 @@ def sense_optimizer(grouped_jobs):
                 sense_url = dst_url.replace(dst_host, sense_ipv6_map[dst_id], 1)
                 file_data["destinations"] = [sense_url]
 
-def free_links(rule_id):
-    requests.post(f"http://flask:5000/free?rule_id={rule_id}")
-
 # Assuming the url is something like "root://hostname//path". Need to make more universal for other url formats.
 def __get_hostname(uri):
     return uri.split("//")[1].split(":")[0]
@@ -76,5 +78,6 @@ def __get_hostname(uri):
 # replacing sense with psudo dns server in flask (image in main dir)
 def __update_cache_with_sense_optimization(rule_id):
     global cache
-    response = requests.get(f"http://flask:5000/sense?rule_id={rule_id}").json()
+    request_args = f"rule_id={rule_id}&metadata_key={'sense_ipv6_map'}" 
+    response = requests.get(f"http://flask:5000/cache?{request_args}").json()
     cache.update({rule_id: response})
