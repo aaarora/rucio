@@ -48,10 +48,12 @@ from rucio.core.request import get_stats_by_activity_direction_state, release_al
 from rucio.core.rse import get_rse, set_rse_transfer_limits, delete_rse_transfer_limits, get_rse_transfer_limits
 from rucio.db.sqla.constants import RequestState
 
+from rucio.extensions.dmm import sense_updater
+
 graceful_stop = threading.Event()
 
 
-def throttler(once=False, sleep_time=600):
+def throttler(once=False, sleep_time=600, sense=False):
     """
     Main loop to check rse transfer limits.
     """
@@ -86,7 +88,7 @@ def throttler(once=False, sleep_time=600):
                 continue
 
             logging.info(prepend_str + "Throttler - schedule requests")
-            run_once(logger=formatted_logger(logging.log, prepend_str + '%s'))
+            run_once(logger=formatted_logger(logging.log, prepend_str + '%s'), sense=sense)
 
             if once:
                 break
@@ -114,7 +116,7 @@ def stop(signum=None, frame=None):
     graceful_stop.set()
 
 
-def run(once=False, sleep_time=600):
+def run(once=False, sleep_time=600, sense=False):
     """
     Starts up the conveyer threads.
     """
@@ -125,11 +127,11 @@ def run(once=False, sleep_time=600):
 
     if once:
         logging.info('running throttler one iteration only')
-        throttler(once=True, sleep_time=sleep_time)
+        throttler(once=True, sleep_time=sleep_time, sense=sense)
     else:
         threads = []
         logging.info('starting throttler thread')
-        throttler_thread = threading.Thread(target=throttler, kwargs={'once': once, 'sleep_time': sleep_time})
+        throttler_thread = threading.Thread(target=throttler, kwargs={'once': once, 'sleep_time': sleep_time, 'sense': sense})
         threads.append(throttler_thread)
         [thread.start() for thread in threads]
 
@@ -208,7 +210,7 @@ def __get_request_stats(all_activities=False, direction='destination'):
     return result_dict
 
 
-def run_once(logger=logging.log, session=None):
+def run_once(logger=logging.log, session=None, sense=False):
     """
     Schedule requests
     """
@@ -217,6 +219,8 @@ def run_once(logger=logging.log, session=None):
         direction, all_activities = get_parsed_throttler_mode(throttler_mode)
         result_dict = __get_request_stats(all_activities, direction)
         if direction == 'destination' or direction == 'source':
+            if sense:
+                sense_updater(result_dict)
             for rse_id in result_dict:
                 rse_name = result_dict[rse_id]['rse']
                 availability = get_rse(rse_id).availability
