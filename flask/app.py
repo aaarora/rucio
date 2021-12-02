@@ -9,13 +9,16 @@ class NONSENSE:
     def __init__(self):
         self.dummy_link = "127.0.0.1"
 
-    def get_links(self, rule_id, src_ids, dst_id, total_byte_count, priority):
-        return [self.dummy_link for _ in src_ids], self.dummy_link
+    def allocate_links(self, rule_id, src_dst_id_pairs, total_byte_count, priority):
+        return
+
+    def get_links(self, rule_id, src_id, dst_id):
+        return self.dummy_link, self.dummy_link
 
     def update_links(self):
         return
 
-    def free_links(self, rse_id):
+    def free_links(self, rule_id, src_id, dst_id):
         return
 
 class Cache:
@@ -67,24 +70,33 @@ app = Flask(__name__)
 @app.route("/cache", methods=["GET", "POST"])
 def cache():
     if request.method == "POST":
-        jobs = request.json
-        for rule_id, job in jobs.items():
-            jobs[rule_id]["sense_ipv6_map"] = {}
-            for file_data in job["files"]:
-                # Dummy ipv6 allocation
-                src_links, dst_link = sense.get_links(
+        prepared_jobs = request.json
+        for rule_id, job in prepared_jobs.items():
+            src_dst_id_pairs = [t_id.split("&") for t_id in job["transfers"].keys()]
+            sense.allocate_links(
+                rule_id,
+                src_dst_id_pairs,
+                job["total_byte_count"],
+                job["priority"]
+            )
+            # Populate SENSE mapping
+            sense_map = {}
+            for transfer_id, transfer_data in job["transfers"].items():
+                # Dummy SENSE links
+                src_link, dst_link = sense.get_links(
                     rule_id,
-                    file_data["source_rse_ids"],
-                    file_data["dest_rse_id"],
-                    job["total_byte_count"],
-                    job["priority"]
+                    transfer_data["source_rse_id"],
+                    transfer_data["dest_rse_id"],
                 )
-                jobs[rule_id]["sense_ipv6_map"].update(
-                    dict(zip(file_data["source_rse_ids"], src_links))
-                )
-                jobs[rule_id]["sense_ipv6_map"][file_data["dest_rse_id"]] = dst_link
+                sense_map[transfer_id] = {
+                    transfer_data["source_rse_id"]: src_link,
+                    transfer_data["dest_rse_id"]: dst_link,
+                    "request_ids": transfer_data["request_ids"]
+                }
+            # Save SENSE mapping
+            prepared_jobs[rule_id]["sense_map"] = sense_map
 
-        dmm_cache.update(jobs)
+        dmm_cache.update(prepared_jobs)
         return ("", 204)
     else:
         rule_id = request.args.get("rule_id")
@@ -96,8 +108,14 @@ def cache():
 
 @app.route("/free", methods=["POST"])
 def free():
-    rule_id = request.args.get("rule_id")
+    rule_id = request.json.get("rule_id")
+    transfer_id = request.json.get("transfer_id")
+    src_id, dst_id = transfer_id.split("&")
     if rule_id in dmm_cache.keys():
-        sense.free_links(rule_id)
-        dmm_cache.delete(rule_id)
-    return ("", 204)
+        sense.free_links(rule_id, src_id, dst_id)
+        dmm_cache[rule_id]["sense_map"].pop(transfer_id)
+        if dmm_cache[rule_id]["sense_map"] == {}:
+            dmm_cache.delete(rule_id)
+        return ("", 204)
+    else:
+        return ("", 500)
