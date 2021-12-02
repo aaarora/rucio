@@ -7,9 +7,18 @@ import logging
 
 cache = {}
 
-def sense_finisher(rule_id):
-    requests.post(f"http://flask:5000/free?rule_id={rule_id}")
+def sense_finisher(rule_id, replicas):
+    # requests.post(f"http://flask:5000/free?rule_id={rule_id}")
+    finished_jobs = {"rule_id": rule_id}
+    print(rule_id)
+    print(replicas)
+    # FIXME: how do we know when to free a link? current mapping is just rse->sense hostname, but
+    #        if we free the link as soon as it appears in replicas, we could free it before all of
+    #        the transfers for that link are done
+    # requests.post(f"http://flask:5000/free", json=finished_jobs)
 
+def sense_updater(results_dict):
+    print(results_dict)
 
 def sense_preparer(requests_with_sources):
     """
@@ -71,12 +80,13 @@ def sense_optimizer(grouped_jobs):
                 sense_url = dst_url.replace(dst_host, sense_ipv6_map[dst_id], 1)
                 file_data["destinations"] = [sense_url]
 
-# Assuming the url is something like "root://hostname//path". Need to make more universal for other url formats.
 def __get_hostname(uri):
+    # Assuming the url is something like "root://hostname//path"
+    # TODO: Need to make more universal for other url formats.
     return uri.split("//")[1].split(":")[0]
 
-# replacing sense with psudo dns server in flask (image in main dir)
 def __update_cache_with_sense_optimization(rule_id):
+    # Replacing sense with psudo dns server in flask (image in main dir)
     global cache
     request_args = f"rule_id={rule_id}&metadata_key={'sense_ipv6_map'}" 
     response = requests.get(f"http://flask:5000/cache?{request_args}").json()

@@ -408,7 +408,7 @@ def __handle_terminated_replicas(replicas, logger=logging.log, sense=False):
                 logger(logging.ERROR, "Something unexpected happened when handling replicas on %s rule %s: %s", req_type, rule_id, str(error))
 
             if sense:
-                sense_finisher(rule_id)
+                sense_finisher(rule_id, replicas[req_type][rule_id])
 
 
 @transactional_session
