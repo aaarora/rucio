@@ -87,6 +87,18 @@ rucio-admin scope add --account root --scope test
 # Delegate credentials to FTS
 /usr/bin/python2.7 /usr/bin/fts-rest-delegate -vf -s https://fts:8446 -H 9999
 
+# Set throttler limits
+XRD3_RSE_ID="$(rucio-admin rse info XRD3 | grep 'rse_id' | awk '{print $2}')"
+
+cat > temp.py << EOF
+from rucio.core.rse import set_rse_transfer_limits
+set_rse_transfer_limits('$XRD3_RSE_ID', 'User Subscriptions', max_transfers=1)
+EOF
+python temp.py; rm temp.py
+
+rucio-admin config set --section throttler --option "'User Subscriptions,$XRD3_RSE_ID'" --value 1
+rucio-admin config set --section throttler --option 'mode' --value 'DEST_PER_ACT'
+
 a=$RANDOM
 b=$RANDOM
 c=$RANDOM
