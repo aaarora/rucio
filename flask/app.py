@@ -9,16 +9,16 @@ class NONSENSE:
     def __init__(self):
         self.dummy_link = "127.0.0.1"
 
-    def allocate_links(self, rule_id, src_dst_id_pairs, total_byte_count, priority):
+    def allocate_links(self, rule_id, rse_pair_ids, total_byte_count, priority):
         return
 
-    def get_links(self, rule_id, src_id, dst_id):
+    def get_links(self, rule_id, rse_pair_id):
         return self.dummy_link, self.dummy_link
 
     def update_links(self):
         return
 
-    def free_links(self, rule_id, src_id, dst_id):
+    def free_links(self, rule_id, rse_pair_id):
         return
 
 class Cache:
@@ -72,26 +72,24 @@ def cache():
     if request.method == "POST":
         prepared_jobs = request.json
         for rule_id, job in prepared_jobs.items():
-            src_dst_id_pairs = [t_id.split("&") for t_id in job["transfers"].keys()]
+            rse_pair_ids = [t_id.split("&") for t_id in job["rse_pairs"].keys()]
             sense.allocate_links(
                 rule_id,
-                src_dst_id_pairs,
+                rse_pair_ids,
                 job["total_byte_count"],
                 job["priority"]
             )
             # Populate SENSE mapping
             sense_map = {}
-            for transfer_id, transfer_data in job["transfers"].items():
-                # Dummy SENSE links
-                src_link, dst_link = sense.get_links(
-                    rule_id,
-                    transfer_data["source_rse_id"],
-                    transfer_data["dest_rse_id"],
-                )
-                sense_map[transfer_id] = {
+            for rse_pair_id, transfer_data in job["rse_pairs"].items():
+                # Get dummy SENSE links
+                src_link, dst_link = sense.get_links(rule_id, rse_pair_id)
+                # Update SENSE mapping
+                sense_map[rse_pair_id] = {
                     transfer_data["source_rse_id"]: src_link,
                     transfer_data["dest_rse_id"]: dst_link,
-                    "request_ids": transfer_data["request_ids"]
+                    "total_transfers": transfer_data["n_transfers"],
+                    "finished_transfers": 0
                 }
             # Save SENSE mapping
             prepared_jobs[rule_id]["sense_map"] = sense_map
@@ -108,14 +106,17 @@ def cache():
 
 @app.route("/free", methods=["POST"])
 def free():
-    rule_id = request.json.get("rule_id")
-    transfer_id = request.json.get("transfer_id")
-    src_id, dst_id = transfer_id.split("&")
-    if rule_id in dmm_cache.keys():
-        sense.free_links(rule_id, src_id, dst_id)
-        dmm_cache[rule_id]["sense_map"].pop(transfer_id)
-        if dmm_cache[rule_id]["sense_map"] == {}:
+    updated_jobs = request.json
+    for rule_id, job in updated_jobs.items():
+        sense_map = dmm_cache[rule_id]["sense_map"]
+        for rse_pair_id, finished_transfers in job.items():
+            sense_map[rse_pair_id]["finished_transfers"] += finished_transfers
+            if sense_map[rse_pair_id]["finished_transfers"] == sense_map[rse_pair_id]["total_transfers"]:
+                sense.free_links(rule_id, rse_pair_id)
+                sense_map.pop(rse_pair_id)
+        if sense_map == {}:
             dmm_cache.delete(rule_id)
-        return ("", 204)
-    else:
-        return ("", 500)
+        else:
+            dmm_cache[rule_id]["sense_map"] = sense_map
+
+    return ("", 204)
