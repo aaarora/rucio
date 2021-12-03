@@ -229,7 +229,7 @@ def __handle_requests(reqs, suspicious_patterns, retry_protocol_mismatches, logg
     replicas = {}
     for req in reqs:
         try:
-            replica = {'scope': req['scope'], 'name': req['name'], 'rse_id': req['dest_rse_id'], 'bytes': req['bytes'], 'adler32': req['adler32'], 'request_id': req['request_id']}
+            replica = {'scope': req['scope'], 'name': req['name'], 'rse_id': req['dest_rse_id'], 'source_rse_id': req['source_rse_id'], 'bytes': req['bytes'], 'adler32': req['adler32'], 'request_id': req['request_id']}
 
             replica['pfn'] = req['dest_url']
             replica['request_type'] = req['request_type']

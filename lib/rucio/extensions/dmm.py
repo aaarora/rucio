@@ -12,14 +12,13 @@ def sense_finisher(rule_id, replicas):
     if rule_id not in cache.keys():
         __update_cache_with_sense_optimization(rule_id)
     for replica in replicas:
+        replica_transfer_id = f"{replica['source_rse_id']}&{replica['rse_id']}"
         for transfer_id, sense_map in cache[rule_id].items():
-            transfer_src_id, transfer_dst_id = transfer_id.split("&")
             req_id = replica["request_id"]
-            if transfer_dst_id == replica["rse_id"] and req_id in sense_map["request_ids"]:
+            if transfer_id == replica_transfer_id:
                 sense_map["request_ids"].remove(replica["request_id"])
                 if len(sense_map["request_ids"]) == 0:
                     # Hacky use of json here beacuse transfer_id has an '&' in it
-                    print(f"Freeing: {rule_id}, {transfer_id}")
                     requests.post(
                         "http://flask:5000/free", 
                         json={"rule_id": rule_id, "transfer_id": transfer_id}
