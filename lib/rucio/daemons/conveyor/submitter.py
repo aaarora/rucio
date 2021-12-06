@@ -185,13 +185,13 @@ def submitter(once=False, sense=False, rses=None, partition_wait_time=10,
                 logger(logging.INFO, 'Starting to group transfers for %s', activity)
                 start_time = time.time()
 
-                grouped_jobs = bulk_group_transfer(transfers, group_policy, group_bulk, source_strategy, max_time_in_queue, group_by_scope=user_transfer, archive_timeout_override=archive_timeout_override)
+                grouped_jobs = bulk_group_transfer(transfers, group_policy, group_bulk, source_strategy, max_time_in_queue, group_by_scope=user_transfer, archive_timeout_override=archive_timeout_override, sense=sense)
                 record_timer('daemons.conveyor.transfer_submitter.bulk_group_transfer', (time.time() - start_time) * 1000 / (len(transfers) if transfers else 1))
 
                 # optimize transfer with sense
                 if sense:
-                  logger(logging.DEBUG,"Optimizing transfers for desired throughput")
-                  sense_optimizer(grouped_jobs)
+                    logger(logging.DEBUG,"Optimizing transfers for desired throughput")
+                    sense_optimizer(grouped_jobs)
                 
                 logger(logging.INFO, 'Starting to submit transfers for %s', activity)
 

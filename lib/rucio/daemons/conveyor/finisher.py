@@ -229,7 +229,11 @@ def __handle_requests(reqs, suspicious_patterns, retry_protocol_mismatches, logg
     replicas = {}
     for req in reqs:
         try:
-            replica = {'scope': req['scope'], 'name': req['name'], 'rse_id': req['dest_rse_id'], 'source_rse_id': req['source_rse_id'], 'bytes': req['bytes'], 'adler32': req['adler32'], 'request_id': req['request_id']}
+            replica = {'scope': req['scope'], 'name': req['name'], 'rse_id': req['dest_rse_id'], 'bytes': req['bytes'], 'adler32': req['adler32'], 'request_id': req['request_id']}
+            if sense:
+                replica['source_rse_id'] = req['source_rse_id']
+                replica['dest_rse_id'] = req['dest_rse_id']
+                replica['priority'] = req['priority']
 
             replica['pfn'] = req['dest_url']
             replica['request_type'] = req['request_type']
@@ -408,7 +412,7 @@ def __handle_terminated_replicas(replicas, logger=logging.log, sense=False):
                 logger(logging.ERROR, "Something unexpected happened when handling replicas on %s rule %s: %s", req_type, rule_id, str(error))
 
             if sense:
-                sense_finisher(rule_id, replicas[req_type][rule_id])
+                sense_finisher(replicas[req_type][rule_id])
 
 
 @transactional_session

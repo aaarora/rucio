@@ -9,16 +9,16 @@ class NONSENSE:
     def __init__(self):
         self.dummy_link = "127.0.0.1"
 
-    def allocate_links(self, rule_id, rse_pair_ids, total_byte_count, priority):
+    def allocate_links(self, priority, rse_pair_ids):
         return
 
-    def get_links(self, rule_id, rse_pair_id):
+    def get_links(self, priority, rse_pair_id):
         return self.dummy_link, self.dummy_link
 
     def update_links(self):
         return
 
-    def free_links(self, rule_id, rse_pair_id):
+    def free_links(self, priority, rse_pair_id):
         return
 
 class Cache:
@@ -63,60 +63,59 @@ class Cache:
             json.dump(self.__content, f_out)
 
 dmm_cache = Cache(clear_on_init=True)
-sense = NONSENSE()
+nonsense = NONSENSE()
 
 app = Flask(__name__)
 
-@app.route("/cache", methods=["GET", "POST"])
-def cache():
+@app.route("/sense", methods=["POST", "GET"])
+def sense():
     if request.method == "POST":
-        prepared_jobs = request.json
-        for rule_id, job in prepared_jobs.items():
-            rse_pair_ids = [t_id.split("&") for t_id in job["rse_pairs"].keys()]
-            sense.allocate_links(
-                rule_id,
-                rse_pair_ids,
-                job["total_byte_count"],
-                job["priority"]
+        sense_maps = {}
+        for priority, jobs in request.json.items():
+            nonsense.allocate_links(
+                priority,
+                jobs.keys()
             )
             # Populate SENSE mapping
             sense_map = {}
-            for rse_pair_id, transfer_data in job["rse_pairs"].items():
+            for rse_pair_id, transfer_data in jobs.items():
                 # Get dummy SENSE links
-                src_link, dst_link = sense.get_links(rule_id, rse_pair_id)
+                src_link, dst_link = nonsense.get_links(priority, rse_pair_id)
                 # Update SENSE mapping
                 sense_map[rse_pair_id] = {
                     transfer_data["source_rse_id"]: src_link,
                     transfer_data["dest_rse_id"]: dst_link,
-                    "total_transfers": transfer_data["n_transfers"],
+                    "total_byte_count": transfer_data["total_byte_count"],
+                    "total_transfers": transfer_data["total_transfers"],
                     "finished_transfers": 0
                 }
             # Save SENSE mapping
-            prepared_jobs[rule_id]["sense_map"] = sense_map
+            if priority in sense_maps.keys():
+                sense_maps[priority].update(sense_map)
+            else:
+                sense_maps[priority] = sense_map
 
-        dmm_cache.update(prepared_jobs)
+        dmm_cache.update(sense_maps)
         return ("", 204)
+    elif request.method == "GET":
+        priority = str(request.json.get("priority"))
+        rse_pair_id = request.json.get("rse_pair_id")
+        return dmm_cache[priority][rse_pair_id]
     else:
-        rule_id = request.args.get("rule_id")
-        metadata_key = request.args.get("metadata_key", "")
-        if metadata_key == "":
-            return dmm_cache[rule_id]
-        else:
-            return dmm_cache[rule_id][metadata_key]
+        return ("", 404)
 
 @app.route("/free", methods=["POST"])
 def free():
-    updated_jobs = request.json
-    for rule_id, job in updated_jobs.items():
-        sense_map = dmm_cache[rule_id]["sense_map"]
-        for rse_pair_id, finished_transfers in job.items():
+    for priority, jobs in request.json.items():
+        sense_map = dmm_cache[priority]
+        for rse_pair_id, finished_transfers in jobs.items():
             sense_map[rse_pair_id]["finished_transfers"] += finished_transfers
             if sense_map[rse_pair_id]["finished_transfers"] == sense_map[rse_pair_id]["total_transfers"]:
-                sense.free_links(rule_id, rse_pair_id)
+                nonsense.free_links(priority, rse_pair_id)
                 sense_map.pop(rse_pair_id)
         if sense_map == {}:
-            dmm_cache.delete(rule_id)
+            dmm_cache.delete(priority)
         else:
-            dmm_cache[rule_id]["sense_map"] = sense_map
+            dmm_cache[priority] = sense_map
 
     return ("", 204)

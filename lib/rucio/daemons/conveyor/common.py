@@ -228,7 +228,7 @@ def submit_transfer(external_host, job, submitter='submitter', timeout=None, use
 
 
 @read_session
-def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strategy=None, max_time_in_queue=None, session=None, logger=logging.log, group_by_scope=False, archive_timeout_override=None):
+def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strategy=None, max_time_in_queue=None, session=None, logger=logging.log, group_by_scope=False, archive_timeout_override=None, sense=False):
     """
     Group transfers in bulk based on certain criterias
 
@@ -276,6 +276,8 @@ def bulk_group_transfer(transfers, policy='rule', group_bulk=200, source_strateg
                   'selection_strategy': source_strategy if source_strategy else activity_source_strategy.get(str(transfer['file_metadata']['activity']), default_source_strategy),
                   'request_type': transfer['file_metadata'].get('request_type', None),
                   'activity': str(transfer['file_metadata']['activity'])}
+        if sense:
+            t_file['priority'] = transfer.rws.attributes['priority']
 
         if verify_checksum != 'none':
             set_checksum_value(t_file, checksums_to_use)
