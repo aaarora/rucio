@@ -71,14 +71,14 @@ app = Flask(__name__)
 def sense():
     if request.method == "POST":
         sense_maps = {}
-        for priority, jobs in request.json.items():
+        for priority, prepared_jobs in request.json.items():
             nonsense.allocate_links(
                 priority,
-                jobs.keys()
+                prepared_jobs.keys()
             )
             # Populate SENSE mapping
             sense_map = {}
-            for rse_pair_id, transfer_data in jobs.items():
+            for rse_pair_id, transfer_data in prepared_jobs.items():
                 # Get dummy SENSE links
                 src_link, dst_link = nonsense.get_links(priority, rse_pair_id)
                 # Update SENSE mapping
@@ -98,7 +98,7 @@ def sense():
         dmm_cache.update(sense_maps)
         return ("", 204)
     elif request.method == "GET":
-        priority = str(request.json.get("priority"))
+        priority = request.json.get("priority")
         rse_pair_id = request.json.get("rse_pair_id")
         return dmm_cache[priority][rse_pair_id]
     else:
@@ -106,9 +106,9 @@ def sense():
 
 @app.route("/free", methods=["POST"])
 def free():
-    for priority, jobs in request.json.items():
+    for priority, updated_jobs in request.json.items():
         sense_map = dmm_cache[priority]
-        for rse_pair_id, finished_transfers in jobs.items():
+        for rse_pair_id, finished_transfers in updated_jobs.items():
             sense_map[rse_pair_id]["finished_transfers"] += finished_transfers
             if sense_map[rse_pair_id]["finished_transfers"] == sense_map[rse_pair_id]["total_transfers"]:
                 nonsense.free_links(priority, rse_pair_id)

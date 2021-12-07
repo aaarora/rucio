@@ -16,7 +16,7 @@ def sense_finisher(replicas):
     updated_jobs = {}
     for replica in replicas:
         rse_pair_id = __get_rse_pair_id(replica["source_rse_id"], replica["dest_rse_id"])
-        priority = replica["priority"]
+        priority = __get_prio_code(replica["priority"])
         if priority not in updated_jobs.keys():
             updated_jobs[priority] = {}
         if rse_pair_id not in updated_jobs[priority].keys():
@@ -40,7 +40,7 @@ def sense_preparer(requests_with_sources):
     prepared_jobs = {}
     for rws in requests_with_sources:
         # Update priority-level metadata
-        priority = rws.attributes["priority"]
+        priority = __get_prio_code(rws.attributes["priority"])
         if priority not in prepared_jobs.keys():
             # Initialize priority-level metadata
             prepared_jobs[priority] = {}
@@ -76,7 +76,7 @@ def sense_optimizer(grouped_jobs):
                 dst_id = file_data["metadata"]["dest_rse_id"]
                 src_id = file_data["metadata"]["src_rse_id"]
                 rse_pair_id = __get_rse_pair_id(src_id, dst_id)
-                priority = file_data["priority"]
+                priority = __get_prio_code(file_data["priority"])
                 # Retrieve SENSE mapping
                 if priority not in cache.keys() or rse_pair_id not in cache[priority].keys():
                     __update_cache_with_sense_optimization(priority, rse_pair_id)
@@ -91,6 +91,9 @@ def sense_optimizer(grouped_jobs):
                 dst_host = __get_hostname(dst_url)
                 dst_sense_url = dst_url.replace(dst_host, sense_map[dst_id], 1)
                 file_data["destinations"] = [dst_sense_url]
+
+def __get_prio_code(priority):
+    return f"PRIO_{priority}"
 
 def __get_rse_pair_id(src_rse_id, dst_rse_id):
     return f"{src_rse_id}&{dst_rse_id}"
