@@ -20,9 +20,13 @@ def sense_finisher(replicas):
         if priority not in updated_jobs.keys():
             updated_jobs[priority] = {}
         if rse_pair_id not in updated_jobs[priority].keys():
-            updated_jobs[priority][rse_pair_id] = 1
+            updated_jobs[priority][rse_pair_id] = {
+                "finished_transfers": 1,
+                "transferred_bytes": replica["bytes"]
+            }
         else:
-            updated_jobs[priority][rse_pair_id] += 1
+            updated_jobs[priority][rse_pair_id]["finished_transfers"] += 1
+            updated_jobs[priority][rse_pair_id]["transferred_bytes"] += replica["bytes"]
 
     requests.post("http://flask:5000/free", json=updated_jobs)
 
@@ -54,10 +58,10 @@ def sense_preparer(requests_with_sources):
                 "source_rse_id": src_id,
                 "dest_rse_id": dst_id,
                 "total_transfers": 0,
-                "total_byte_count": 0
+                "total_bytes": 0
             }
         prepared_jobs[priority][rse_pair_id]["total_transfers"] += 1
-        prepared_jobs[priority][rse_pair_id]["total_byte_count"] += rws.byte_count
+        prepared_jobs[priority][rse_pair_id]["total_bytes"] += rws.byte_count
 
     # Communicate the collected information to SENSE via DMM
     response = requests.post("http://flask:5000/sense", json=prepared_jobs)
@@ -69,6 +73,25 @@ def sense_optimizer(grouped_jobs):
     :param grouped_jobs:             Transfers grouped in bulk (see rucio.daemons.conveyor.common)
     """
     global cache
+    # Count submissions and sort by priority, rse pair
+    submission_counts = {}
+    for external_host in grouped_jobs:
+        for job in grouped_jobs[external_host]:
+            for file_data in job["files"]:
+                # Get transfer information
+                dst_id = file_data["metadata"]["dest_rse_id"]
+                src_id = file_data["metadata"]["src_rse_id"]
+                rse_pair_id = __get_rse_pair_id(src_id, dst_id)
+                priority = __get_prio_code(file_data["priority"])
+                if priority not in submission_counts.keys():
+                    submission_counts[priority] = {}
+                counts = submission_counts[priority]
+                if rse_pair_id not in counts.keys():
+                    counts[rse_pair_id] = 1
+                else:
+                    counts[rse_pair_id] += 1
+                submission_counts[priority].update(counts)
+    # Do SENSE link replacement
     for external_host in grouped_jobs:
         for job in grouped_jobs[external_host]:
             for file_data in job["files"]:
@@ -79,7 +102,11 @@ def sense_optimizer(grouped_jobs):
                 priority = __get_prio_code(file_data["priority"])
                 # Retrieve SENSE mapping
                 if priority not in cache.keys() or rse_pair_id not in cache[priority].keys():
-                    __update_cache_with_sense_optimization(priority, rse_pair_id)
+                    __update_cache_with_sense_optimization(
+                        priority, 
+                        rse_pair_id, 
+                        submission_counts[priority][rse_pair_id]
+                    )
                 sense_map = cache[priority][rse_pair_id]
                 # Update source
                 (src_name, src_url, src_id, src_retries) = file_data["sources"][0]
@@ -103,12 +130,16 @@ def __get_hostname(uri):
     # TODO: Need to make more universal for other url formats.
     return uri.split("//")[1].split(":")[0]
 
-def __update_cache_with_sense_optimization(priority, rse_pair_id):
+def __update_cache_with_sense_optimization(priority, rse_pair_id, submitted_transfers):
     """ Fetch and cache SENSE mappings via DMM """
     global cache
     response = requests.get(
         "http://flask:5000/sense", 
-        json={"priority": priority, "rse_pair_id": rse_pair_id} # use json due to '&' in pair ID
+        json={
+            "priority": priority, 
+            "rse_pair_id": rse_pair_id, 
+            "submitted_transfers": submitted_transfers
+        }
     )
     if priority not in cache.keys():
         cache[priority] = {rse_pair_id: response.json()}
