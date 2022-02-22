@@ -33,14 +33,16 @@ function usage {
   echo ''
   echo '  -h    Show usage'
   echo '  -i    Do only the initialization'
-  echo '  -r    Activate default RSEs (XRD1, XRD2, XRD3)'
+  echo '  -r    Activate RSEs'
   echo '  -s    Run special tests for Dirac. Includes using BelleII schema'
   echo '  -t    Verbose output from pytest'
   echo '  -a    Skip alembic downgrade/upgrade test'
   echo '  -x    exit instantly on first error or failed test'
+  echo '  -d    set up for US-CMS Data Lake tests (sets up Rucio-SENSE tests by default)'
   exit
 }
 
+datalake="false"
 while getopts hirstax opt
 do
   case "$opt" in
@@ -51,6 +53,7 @@ do
     t) trace="true";;
     a) noalembic="true";;
     x) exitfirst="-x";;
+    d) datalake="true";; # sets up for Rucio-SENSE test by default
   esac
 done
 export RUCIO_HOME=/opt/etc/test
@@ -58,6 +61,12 @@ export RUCIO_HOME=/opt/etc/test
 # DEBUG
 nl=$'\n'
 sed -i "s/\[conveyor\]/\[conveyor\]""\\${nl}""use_preparer\ \=\ True/g" etc/rucio.cfg
+if [[ "$datalake" == "true" ]]; then
+    sed -i "s/schema\ \=\ atlas/schema\ \=\ cms/g" etc/rucio.cfg
+    sed -i "s/permission\ \=\ atlas/permission\ \=\ cms/g" etc/rucio.cfg
+    cp lfn2pfn_algorithms/*.py /usr/local/lib/python3.6/site-packages/
+    chmod 755 /usr/local/lib/python3.6/site-packages/cmstfc.py
+fi
 
 echo 'Clearing memcache'
 echo flush_all > /dev/tcp/127.0.0.1/11211
@@ -113,38 +122,45 @@ else
     fi
 fi
 
-echo 'Bootstrapping tests'
-tools/bootstrap_tests.py
-if [ $? != 0 ]; then
-    echo 'Failed to bootstrap!'
-    exit 1
-fi
+if [[ "$datalake" == "false" ]]; then # Run tests that rely on ATLAS lfn2pfn
+    echo 'Bootstrapping tests'
+    tools/bootstrap_tests.py
+    if [ $? != 0 ]; then
+        echo 'Failed to bootstrap!'
+        exit 1
+    fi
 
-echo 'Sync rse_repository'
-if test ${special}; then
-    tools/sync_rses.py etc/rse_repository.json.special
+    echo 'Sync rse_repository'
+    if test ${special}; then
+        tools/sync_rses.py etc/rse_repository.json.special
+        if [ $? != 0 ]; then
+            echo 'Failed to sync!'
+            exit 1
+        fi
+    else
+        tools/sync_rses.py
+        if [ $? != 0 ]; then
+            echo 'Failed to sync!'
+            exit 1
+        fi
+    fi
+
+    echo 'Sync metadata keys'
+    tools/sync_meta.py
     if [ $? != 0 ]; then
         echo 'Failed to sync!'
         exit 1
     fi
-else
-    tools/sync_rses.py
-    if [ $? != 0 ]; then
-        echo 'Failed to sync!'
-        exit 1
-    fi
-fi
-
-echo 'Sync metadata keys'
-tools/sync_meta.py
-if [ $? != 0 ]; then
-    echo 'Failed to sync!'
-    exit 1
 fi
 
 if test ${activate_rse}; then
-    echo 'Activating default RSEs (XRD1, XRD2, XRD3)'
-    tools/docker_activate_rses.sh
+    if [[ "$datalake" == "true" ]]; then
+        echo 'Activating US-CMS Data Lake RSEs'
+        tools/docker_activate_datalake_rses.sh
+    else
+        echo 'Activating Rucio-SENSE RSEs'
+        tools/docker_activate_nrp_rses.sh
+    fi
 fi
 
 if test ${init_only}; then
