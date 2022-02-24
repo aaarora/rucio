@@ -4,8 +4,12 @@ SENSE Optimizer Prototype
 
 import requests
 import logging
+from multiprocessing.connection import Client
 
 cache = {}
+
+ADDRESS = ("localhost", 5000)
+AUTHKEY = b"secret password"
 
 def sense_finisher(replicas):
     """
@@ -28,7 +32,11 @@ def sense_finisher(replicas):
             updated_jobs[priority][rse_pair_id]["finished_transfers"] += 1
             updated_jobs[priority][rse_pair_id]["transferred_bytes"] += replica["bytes"]
 
-    requests.post("http://flask:5000/free", json=updated_jobs)
+    with 
+    # requests.post("http://flask:5000/free", json=updated_jobs)
+    with Client(ADDRESS, authkey=AUTHKEY) as client:
+        client.send(("FINISHER", updated_jobs))
+
 
 def sense_updater(results_dict):
     print(results_dict)
@@ -64,7 +72,9 @@ def sense_preparer(requests_with_sources):
         prepared_jobs[priority][rse_pair_id]["total_bytes"] += rws.byte_count
 
     # Communicate the collected information to SENSE via DMM
-    response = requests.post("http://flask:5000/sense", json=prepared_jobs)
+    # response = requests.post("http://flask:5000/sense", json=prepared_jobs)
+    with Client(ADDRESS, authkey=AUTHKEY) as client:
+        client.send(("PREPARER", prepared_jobs))
 
 def sense_optimizer(grouped_jobs):
     """
@@ -133,14 +143,23 @@ def __get_hostname(uri):
 def __update_cache_with_sense_optimization(priority, rse_pair_id, submitted_transfers):
     """ Fetch and cache SENSE mappings via DMM """
     global cache
-    response = requests.get(
-        "http://flask:5000/sense", 
-        json={
+    # response = requests.get(
+    #     "http://flask:5000/sense", 
+    #     json={
+    #         "priority": priority, 
+    #         "rse_pair_id": rse_pair_id, 
+    #         "submitted_transfers": submitted_transfers
+    #     }
+    # )
+    with Client(ADDRESS, authkey=AUTHKEY) as client:
+        payload = {
             "priority": priority, 
             "rse_pair_id": rse_pair_id, 
             "submitted_transfers": submitted_transfers
         }
-    )
+        client.send(("SUBMITTER", payload))
+        response = client.recv()
+
     if priority not in cache.keys():
         cache[priority] = {rse_pair_id: response.json()}
     else:
