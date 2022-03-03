@@ -90,11 +90,11 @@ rucio-admin scope add --account root --scope test
 # Set throttler limits
 XRD3_RSE_ID="$(rucio-admin rse info XRD3 | grep 'rse_id' | awk '{print $2}')"
 
-cat > temp.py << EOF
-from rucio.core.rse import set_rse_transfer_limits
-set_rse_transfer_limits('$XRD3_RSE_ID', 'User Subscriptions', max_transfers=1)
-EOF
-python temp.py; rm temp.py
+#cat > temp.py << EOF
+#from rucio.core.rse import set_rse_transfer_limits
+#set_rse_transfer_limits('$XRD3_RSE_ID', 'User Subscriptions', max_transfers=1)
+#EOF
+#python temp.py; rm temp.py
 
 rucio-admin config set --section throttler --option "'User Subscriptions,$XRD3_RSE_ID'" --value 1
 rucio-admin config set --section throttler --option 'mode' --value 'DEST_PER_ACT'
@@ -103,17 +103,23 @@ a=$RANDOM
 b=$RANDOM
 c=$RANDOM
 d=$RANDOM
+e=$RANDOM
+f=$RANDOM
 
 # Create initial transfer testing data
 dd if=/dev/urandom of=file$a bs=1M count=1
 dd if=/dev/urandom of=file$b bs=1M count=1
 dd if=/dev/urandom of=file$c bs=1M count=1
 dd if=/dev/urandom of=file$d bs=1M count=1
+dd if=/dev/urandom of=file$e bs=1M count=1
+dd if=/dev/urandom of=file$f bs=1M count=1
 
 rucio upload --rse XRD1 --scope test file$a
 rucio upload --rse XRD1 --scope test file$b
-rucio upload --rse XRD2 --scope test file$c
-rucio upload --rse XRD2 --scope test file$d
+rucio upload --rse XRD1 --scope test file$c
+rucio upload --rse XRD1 --scope test file$d
+rucio upload --rse XRD1 --scope test file$e
+rucio upload --rse XRD1 --scope test file$f
 
 rucio add-dataset test:dataset$a
 rucio attach test:dataset$a test:file$a test:file$b
@@ -121,10 +127,13 @@ rucio attach test:dataset$a test:file$a test:file$b
 rucio add-dataset test:dataset$b
 rucio attach test:dataset$b test:file$c test:file$d
 
-rucio add-container test:container$c
-rucio attach test:container$c test:dataset$a test:dataset$b
+rucio add-dataset test:dataset$c
+rucio attach test:dataset$c test:file$e test:file$f
 
-rucio add-rule test:container$c 1 XRD3
+rucio add-container test:container$d
+rucio attach test:container$d test:dataset$a test:dataset$b test:dataset$c
+
+rucio add-rule test:container$d 1 XRD3
 
 ## Create complication
 #rucio add-dataset test:dataset3
