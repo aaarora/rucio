@@ -19,13 +19,12 @@ def sense_finisher(rule_id, replicas):
     :param rule_id:     Rucio rule ID
     :param replicas:    Individual replicas produced by now-finished transfers
     """
-    finisher_reports = {}
+    finisher_report = {
+        "rule_id": rule_id,
+        "n_transfers_finished": 0,
+        "n_bytes_transferred": 0
+    }
     for replica in replicas:
-        if rule_id not in finisher_reports.keys():
-            finisher_reports[rule_id] = {
-                "n_transfers_finished": 0,
-                "n_bytes_transferred": 0
-            }
         finisher_reports[rule_id]["n_transfers_finished"] += 1
         finisher_reports[rule_id]["n_bytes_transferred"] += replica["bytes"]
 
@@ -112,7 +111,7 @@ def __update_cache_with_sense_optimization(rule_id, n_transfers_submitted):
     global cache
     with Client(ADDRESS, authkey=AUTHKEY) as client:
         submitter_report = {
-            "rucio_rule_id": rule_id,
+            "rule_id": rule_id,
             "n_transfers_submitted": n_transfers_submitted
         }
         client.send(("SUBMITTER", submitter_report))
