@@ -21,7 +21,9 @@ def sense_finisher(rule_id, replicas):
     """
     finisher_reports = {}
     for replica in replicas:
-        rse_pair_id = __get_rse_pair_id(replica["source_rse_name"], replica["dest_rse_name"]) # FIXME: probably wrong
+        src_name = get_rse_name(replica["source_rse_id"])
+        dst_name = get_rse_name(replica["dest_rse_id"])
+        rse_pair_id = __get_rse_pair_id(src_name, dst_name) # FIXME: probably wrong
         if rse_pair_id not in finisher_reports.keys():
             finisher_reports[rse_pair_id] = {
                 "n_transfers_finished": 0,
@@ -49,12 +51,12 @@ def sense_preparer(requests_with_sources):
         if rws.rule_id not in prepared_rules.keys():
             prepared_rules[rws.rule_id] = {}
         # Check if RSE pair has been accounted for
-        src_name = rws.sources[0].rse.name, # FIXME: can we always take the first one?
+        src_name = rws.sources[0].rse.name # FIXME: can we always take the first one?
         dst_name = get_rse_name(rws.dest_rse.id)
         rse_pair_id = __get_rse_pair_id(src_name, dst_name)
-        elif rse_pair_id not in prepared_rules[rse_pair_id].keys():
+        if rse_pair_id not in prepared_rules[rws.rule_id].keys():
             prepared_rules[rws.rule_id][rse_pair_id] = {
-                "request_ids": [],
+                "transfer_ids": [],
                 "priority": rws.attributes["priority"],
                 "n_transfers_total": 0,
                 "n_bytes_total": 0
@@ -87,18 +89,18 @@ def sense_optimizer(grouped_jobs):
     for external_host in grouped_jobs:
         for job in grouped_jobs[external_host]:
             for file_data in job["files"]:
-                rule_id = file_data["rule_id"]
                 # Retrieve SENSE mapping
+                rule_id = file_data["rule_id"]
                 src_name = file_data["metadata"]["src_rse"]
                 dst_name = file_data["metadata"]["dst_rse"]
                 rse_pair_id = __get_rse_pair_id(src_name, dst_name)
-                if rule_id not in cache.keys():
+                if rule_id not in cache.keys() or rse_pair_id not in cache[rule_id].keys():
                     __update_cache_with_sense_optimization(
                         rule_id,
                         rse_pair_id,
                         submitter_reports[rule_id]
                     )
-                sense_map = cache[rule_id]
+                sense_map = cache[rule_id][rse_pair_id]
                 # Update source
                 (src_name, src_url, src_id, src_retries) = file_data["sources"][0]
                 src_hostname = __get_hostname(src_url)
@@ -118,7 +120,7 @@ def __get_hostname(uri):
     # TODO: Need to make more universal for other url formats.
     return uri.split("//")[1].split(":")[0]
 
-def __update_cache_with_sense_optimization(rule_id, n_transfers_submitted):
+def __update_cache_with_sense_optimization(rule_id, rse_pair_id, n_transfers_submitted):
     """ Fetch and cache SENSE mappings via DMM """
     global cache
     with Client(ADDRESS, authkey=AUTHKEY) as client:
@@ -131,6 +133,6 @@ def __update_cache_with_sense_optimization(rule_id, n_transfers_submitted):
         response = client.recv()
 
     if rule_id not in cache.keys():
-        cache[rule_id] = response
+        cache[rule_id] = {rse_pair_id: response}
     else:
-        cache[rule_id].update(response)
+        cache[rule_id].update({rse_pair_id: response})
