@@ -83,8 +83,13 @@ def sense_optimizer(grouped_jobs):
             for file_data in job["files"]:
                 rule_id = file_data["rule_id"]
                 if rule_id not in submitter_reports.keys():
-                    submitter_reports[rule_id] = 0
-                submitter_reports[rule_id] += 1
+                    submitter_reports[rule_id] = {}
+                src_name = file_data["metadata"]["src_rse"]
+                dst_name = file_data["metadata"]["dst_rse"]
+                rse_pair_id = __get_rse_pair_id(src_name, dst_name)
+                if rse_pair_id not in submitter_reports[rule_id].keys():
+                    submitter_reports[rule_id][rse_pair_id] = 0
+                submitter_reports[rule_id][rse_pair_id] += 1
     # Do SENSE link replacement
     for external_host in grouped_jobs:
         for job in grouped_jobs[external_host]:
@@ -97,8 +102,9 @@ def sense_optimizer(grouped_jobs):
                 if rule_id not in cache.keys() or rse_pair_id not in cache[rule_id].keys():
                     __update_cache_with_sense_optimization(
                         rule_id,
+                        file_data["priority"],
                         rse_pair_id,
-                        submitter_reports[rule_id]
+                        submitter_reports[rule_id][rse_pair_id]
                     )
                 sense_map = cache[rule_id][rse_pair_id]
                 # Update source
@@ -120,12 +126,13 @@ def __get_hostname(uri):
     # TODO: Need to make more universal for other url formats.
     return uri.split("//")[1].split(":")[0]
 
-def __update_cache_with_sense_optimization(rule_id, rse_pair_id, n_transfers_submitted):
+def __update_cache_with_sense_optimization(rule_id, priority, rse_pair_id, n_transfers_submitted):
     """ Fetch and cache SENSE mappings via DMM """
     global cache
     with Client(ADDRESS, authkey=AUTHKEY) as client:
         submitter_report = {
             "rule_id": rule_id,
+            "priority": priority,
             "rse_pair_id": rse_pair_id,
             "n_transfers_submitted": n_transfers_submitted
         }
