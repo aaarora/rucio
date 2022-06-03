@@ -94,9 +94,12 @@ PURGE_REPLICAS = {"description": "Rule purge replica status",
 IGNORE_AVAILABILITY = {"description": "Rule ignore availability status",
                        "type": "boolean"}
 
+#RSE = {"description": "RSE name",
+#       "type": "string",
+#       "pattern": "^([A-Z0-9]+([_-][A-Z0-9]+)*)$"}
 RSE = {"description": "RSE name",
        "type": "string",
-       "pattern": "^([A-Z0-9]+([_-][A-Z0-9]+)*)$"}
+       "pattern": "^T[0-3]_[A-Z]{2}((_[A-Za-z0-9]+)+)$"}
 
 RSE_ATTRIBUTE = {"description": "RSE attribute",
                  "type": "string",
