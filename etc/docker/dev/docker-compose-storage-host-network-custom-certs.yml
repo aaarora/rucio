@@ -1,0 +1,100 @@
+services:
+  rucio:
+    image: docker.io/rucio/rucio-dev:py3
+    network_mode: "host"
+    extra_hosts:
+      - "rucio:127.0.0.1"
+      - "ruciodb:127.0.0.1"
+      - "graphite:127.0.0.1"
+      - "fts:127.0.0.1"
+      - "ftsdb:127.0.0.1"
+      - "minio:127.0.0.1"
+    volumes:
+      - ../../../rucio-sense-dmm:/opt/rucio/rucio-sense-dmm:Z
+      - ../../../tools:/opt/rucio/tools:Z
+      - ../../../bin:/opt/rucio/bin:Z
+      - ../../../lib:/opt/rucio/lib:Z
+      - ../../certs/hostcert_rucio.pem:/etc/grid-security/hostcert.pem:Z
+      - ../../certs/hostcert_rucio.key.pem:/etc/grid-security/hostkey.pem:Z
+      - ../../certs/ruciouser.pem:/opt/rucio/etc/usercert.pem:Z
+      - ../../certs/ruciouser.key.pem:/opt/rucio/etc/userkey.pem:Z
+      - ../../certs/ruciousercertkey.pem:/opt/rucio/etc/usercertkey.pem:Z
+      - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:Z
+    environment:
+      - X509_USER_CERT=/opt/rucio/etc/usercert.pem
+      - X509_USER_KEY=/opt/rucio/etc/userkey.pem
+      - RDBMS=postgres11
+  ruciodb:
+    image: docker.io/postgres:11
+    network_mode: "host"
+    extra_hosts:
+      - "rucio:127.0.0.1"
+      - "ruciodb:127.0.0.1"
+      - "graphite:127.0.0.1"
+      - "fts:127.0.0.1"
+      - "ftsdb:127.0.0.1"
+      - "minio:127.0.0.1"
+    environment:
+      - POSTGRES_USER=rucio
+      - POSTGRES_DB=rucio
+      - POSTGRES_PASSWORD=secret
+    command: ["-c", "fsync=off","-c", "synchronous_commit=off","-c", "full_page_writes=off"]
+  graphite:
+    image: docker.io/graphiteapp/graphite-statsd
+    network_mode: "host"
+    extra_hosts:
+      - "rucio:127.0.0.1"
+      - "ruciodb:127.0.0.1"
+      - "graphite:127.0.0.1"
+      - "fts:127.0.0.1"
+      - "ftsdb:127.0.0.1"
+      - "minio:127.0.0.1"
+  fts:
+    image: docker.io/rucio/fts
+    network_mode: "host"
+    extra_hosts:
+      - "rucio:127.0.0.1"
+      - "ruciodb:127.0.0.1"
+      - "graphite:127.0.0.1"
+      - "fts:127.0.0.1"
+      - "ftsdb:127.0.0.1"
+      - "minio:127.0.0.1"
+    volumes:
+      - ../../certs/hostcert_fts.pem:/etc/grid-security/hostcert.pem:Z
+      - ../../certs/hostcert_fts.key.pem:/etc/grid-security/hostkey.pem:Z
+      - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:Z
+  ftsdb:
+    image: docker.io/mysql:5
+    network_mode: "host"
+    extra_hosts:
+      - "rucio:127.0.0.1"
+      - "ruciodb:127.0.0.1"
+      - "graphite:127.0.0.1"
+      - "fts:127.0.0.1"
+      - "ftsdb:127.0.0.1"
+      - "minio:127.0.0.1"
+    environment:
+      - MYSQL_USER=fts
+      - MYSQL_PASSWORD=fts
+      - MYSQL_ROOT_PASSWORD=fts
+      - MYSQL_DATABASE=fts
+  minio:
+    image: docker.io/minio/minio
+    network_mode: "host"
+    extra_hosts:
+      - "rucio:127.0.0.1"
+      - "ruciodb:127.0.0.1"
+      - "graphite:127.0.0.1"
+      - "fts:127.0.0.1"
+      - "ftsdb:127.0.0.1"
+      - "minio:127.0.0.1"
+    environment:
+      - MINIO_ACCESS_KEY=admin
+      - MINIO_SECRET_KEY=password
+    volumes:
+      - ../../certs/hostcert_minio.pem:/root/.minio/certs/public.crt:Z
+      - ../../certs/hostcert_minio.key.pem:/root/.minio/certs/private.key:Z
+    command: ["server", "/data"]
+#  flask:
+#    image: flask-test
+#    network_mode: "host"
