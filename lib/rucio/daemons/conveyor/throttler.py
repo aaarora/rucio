@@ -48,7 +48,7 @@ from rucio.core.request import get_stats_by_activity_direction_state, release_al
 from rucio.core.rse import get_rse, set_rse_transfer_limits, delete_rse_transfer_limits, get_rse_transfer_limits
 from rucio.db.sqla.constants import RequestState
 
-from rucio.extensions.dmm import sense_updater
+# from rucio.extensions.dmm import sense_updater
 
 graceful_stop = threading.Event()
 
@@ -219,8 +219,8 @@ def run_once(logger=logging.log, session=None, sense=False):
         direction, all_activities = get_parsed_throttler_mode(throttler_mode)
         result_dict = __get_request_stats(all_activities, direction)
         if direction == 'destination' or direction == 'source':
-            if sense:
-                sense_updater(result_dict)
+            # if sense:
+            #     sense_updater(result_dict)
             for rse_id in result_dict:
                 rse_name = result_dict[rse_id]['rse']
                 availability = get_rse(rse_id).availability
