@@ -25,6 +25,9 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
+sh tools/fix_davix.sh
+pip3 install sense-o-api==1.23
+
 memcached -u root -d
 
 function usage {
@@ -43,7 +46,7 @@ function usage {
 }
 
 datalake="false"
-while getopts hirstax opt
+while getopts hirstaxd opt
 do
   case "$opt" in
     h) usage;;
@@ -64,7 +67,7 @@ sed -i "s/\[conveyor\]/\[conveyor\]""\\${nl}""use_preparer\ \=\ True/g" etc/ruci
 if [[ "$datalake" == "true" ]]; then
     sed -i "s/schema\ \=\ atlas/schema\ \=\ cms/g" etc/rucio.cfg
     sed -i "s/permission\ \=\ atlas/permission\ \=\ cms/g" etc/rucio.cfg
-    cp lfn2pfn_algorithms/*.py /usr/local/lib/python3.6/site-packages/
+    cp tools/lfn2pfn_algorithms/*.py /usr/local/lib/python3.6/site-packages/
     chmod 755 /usr/local/lib/python3.6/site-packages/cmstfc.py
 fi
 
@@ -122,36 +125,36 @@ else
     fi
 fi
 
-if [[ "$datalake" == "false" ]]; then # Run tests that rely on ATLAS lfn2pfn
-    echo 'Bootstrapping tests'
-    tools/bootstrap_tests.py
-    if [ $? != 0 ]; then
-        echo 'Failed to bootstrap!'
-        exit 1
-    fi
-
-    echo 'Sync rse_repository'
-    if test ${special}; then
-        tools/sync_rses.py etc/rse_repository.json.special
-        if [ $? != 0 ]; then
-            echo 'Failed to sync!'
-            exit 1
-        fi
-    else
-        tools/sync_rses.py
-        if [ $? != 0 ]; then
-            echo 'Failed to sync!'
-            exit 1
-        fi
-    fi
-
-    echo 'Sync metadata keys'
-    tools/sync_meta.py
-    if [ $? != 0 ]; then
-        echo 'Failed to sync!'
-        exit 1
-    fi
-fi
+#if [[ "$datalake" == "false" ]]; then # Run tests that rely on ATLAS lfn2pfn
+#    echo 'Bootstrapping tests'
+#    tools/bootstrap_tests.py
+#    if [ $? != 0 ]; then
+#        echo 'Failed to bootstrap!'
+#        exit 1
+#    fi
+#
+#    echo 'Sync rse_repository'
+#    if test ${special}; then
+#        tools/sync_rses.py etc/rse_repository.json.special
+#        if [ $? != 0 ]; then
+#            echo 'Failed to sync!'
+#            exit 1
+#        fi
+#    else
+#        tools/sync_rses.py
+#        if [ $? != 0 ]; then
+#            echo 'Failed to sync!'
+#            exit 1
+#        fi
+#    fi
+#
+#    echo 'Sync metadata keys'
+#    tools/sync_meta.py
+#    if [ $? != 0 ]; then
+#        echo 'Failed to sync!'
+#        exit 1
+#    fi
+#fi
 
 if test ${activate_rse}; then
     if [[ "$datalake" == "true" ]]; then
