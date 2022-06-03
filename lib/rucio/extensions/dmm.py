@@ -6,8 +6,6 @@ import logging
 from multiprocessing.connection import Client
 from rucio.core.rse import get_rse_name
 
-cache = {}
-
 ADDRESS = ("localhost", 5000)
 AUTHKEY = b"secret password"
 
@@ -35,8 +33,8 @@ def sense_finisher(rule_id, replicas):
     with Client(ADDRESS, authkey=AUTHKEY) as client:
         client.send(("FINISHER", {rule_id: finisher_reports}))
 
-def sense_updater(results_dict):
-    print(results_dict)
+def sense_updater(*args, **kwargs):
+    return
 
 def sense_preparer(requests_with_sources):
     """
@@ -76,70 +74,51 @@ def sense_optimizer(grouped_jobs):
     :param grouped_jobs:             Transfers grouped in bulk (see rucio.daemons.conveyor.common)
     """
     global cache
-    # Count submissions and sort by rule id
+    # Count submissions and sort by rule ID and RSE pair ID
     submitter_reports = {}
     for external_host in grouped_jobs:
         for job in grouped_jobs[external_host]:
+            # Parse all file transfers
             for file_data in job["files"]:
+                # Get rule ID
                 rule_id = file_data["rule_id"]
                 if rule_id not in submitter_reports.keys():
                     submitter_reports[rule_id] = {}
+                # Get RSE pair ID
                 src_name = file_data["metadata"]["src_rse"]
                 dst_name = file_data["metadata"]["dst_rse"]
                 rse_pair_id = __get_rse_pair_id(src_name, dst_name)
+                # Count transfers
                 if rse_pair_id not in submitter_reports[rule_id].keys():
-                    submitter_reports[rule_id][rse_pair_id] = 0
-                submitter_reports[rule_id][rse_pair_id] += 1
+                    submitter_reports[rule_id][rse_pair_id] = {
+                        "priority": file_data["priority"],
+                        "n_transfers_submitted": 0
+                    }
+                submitter_reports[rule_id][rse_pair_id]["n_transfers_submitted"] += 1
+    # Get SENSE mapping
+    with Client(ADDRESS, authkey=AUTHKEY) as client:
+        client.send(("SUBMITTER", submitter_reports))
+        sense_map = client.recv()
     # Do SENSE link replacement
     for external_host in grouped_jobs:
         for job in grouped_jobs[external_host]:
             for file_data in job["files"]:
-                # Retrieve SENSE mapping
-                rule_id = file_data["rule_id"]
-                src_name = file_data["metadata"]["src_rse"]
-                dst_name = file_data["metadata"]["dst_rse"]
-                rse_pair_id = __get_rse_pair_id(src_name, dst_name)
-                if rule_id not in cache.keys() or rse_pair_id not in cache[rule_id].keys():
-                    __update_cache_with_sense_optimization(
-                        rule_id,
-                        file_data["priority"],
-                        rse_pair_id,
-                        submitter_reports[rule_id][rse_pair_id]
-                    )
-                sense_map = cache[rule_id][rse_pair_id]
+                ipv6_map = sense_map[rule_id][rse_pair_id]
                 # Update source
                 (src_name, src_url, src_id, src_retries) = file_data["sources"][0]
-                src_hostname = __get_hostname(src_url)
-                src_sense_url = src_url.replace(src_hostname, sense_map[src_name], 1)
+                src_hostname = __get_host_port(src_url)
+                src_sense_url = src_url.replace(src_hostname, ipv6_map[src_name], 1)
                 file_data["sources"][0] = (src_name, src_sense_url, src_id, src_retries)
                 # Update destination
                 dst_url = file_data["destinations"][0]
-                dst_hostname = __get_hostname(dst_url)
-                dst_sense_url = dst_url.replace(dst_hostname, sense_map[dst_name], 1)
+                dst_hostname = __get_host_port(dst_url)
+                dst_sense_url = dst_url.replace(dst_hostname, ipv6_map[dst_name], 1)
                 file_data["destinations"] = [dst_sense_url]
 
 def __get_rse_pair_id(src_rse_name, dst_rse_name):
     return f"{src_rse_name}&{dst_rse_name}"
 
-def __get_hostname(uri):
-    # Assumes the url is something like "root://hostname//path"
+def __get_host_port(url):
+    # Assumes the url is something like "protocol://hostname//path"
     # TODO: Need to make more universal for other url formats.
-    return uri.split("//")[1].split(":")[0]
-
-def __update_cache_with_sense_optimization(rule_id, priority, rse_pair_id, n_transfers_submitted):
-    """ Fetch and cache SENSE mappings via DMM """
-    global cache
-    with Client(ADDRESS, authkey=AUTHKEY) as client:
-        submitter_report = {
-            "rule_id": rule_id,
-            "priority": priority,
-            "rse_pair_id": rse_pair_id,
-            "n_transfers_submitted": n_transfers_submitted
-        }
-        client.send(("SUBMITTER", submitter_report))
-        response = client.recv()
-
-    if rule_id not in cache.keys():
-        cache[rule_id] = {rse_pair_id: response}
-    else:
-        cache[rule_id].update({rse_pair_id: response})
+    return url.split("/")[2]
