@@ -82,4 +82,4 @@ rucio-admin scope add --account root --scope cms
 
 python tools/docker_transfer_t2_files.py
 
-rucio add-rule cms:/store/mc/RunIISummer20UL17NanoAODv9/TTJets_TuneCP5_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v1/280000/3E5CB3C7-9D52-9E47-A4EB-0886B48D7891.root 1 T2_US_DATALAKE_ORIGIN_2811
+rucio add-rule cms:/store/mc/RunIISummer20UL17NanoAODv9/TTJets_TuneCP5_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v1/280000/13A49B24-F430-6642-B7A2-36E4FE7C1FE4.root 1 T2_US_DATALAKE_ORIGIN_2811
