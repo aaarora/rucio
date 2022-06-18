@@ -25,9 +25,6 @@
 # - Eli Chadwick <eli.chadwick@stfc.ac.uk>, 2020
 # - Benedikt Ziemons <benedikt.ziemons@cern.ch>, 2020-2021
 
-sh tools/fix_davix.sh
-pip3 install sense-o-api==1.23
-
 memcached -u root -d
 
 function usage {
