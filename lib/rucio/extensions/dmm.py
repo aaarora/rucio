@@ -25,10 +25,12 @@ def sense_finisher(rule_id, replicas):
         if rse_pair_id not in finisher_reports.keys():
             finisher_reports[rse_pair_id] = {
                 "n_transfers_finished": 0,
-                "n_bytes_transferred": 0
+                "n_bytes_transferred": 0,
+                "external_ids": []
             }
         finisher_reports[rse_pair_id]["n_transfers_finished"] += 1
         finisher_reports[rse_pair_id]["n_bytes_transferred"] += replica["bytes"]
+        finisher_reports[rse_pair_id]["external_ids"].append(replica["external_id"])
 
     with Client(ADDRESS, authkey=AUTHKEY) as client:
         client.send(("FINISHER", {rule_id: finisher_reports}))

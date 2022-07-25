@@ -234,6 +234,7 @@ def __handle_requests(reqs, suspicious_patterns, retry_protocol_mismatches, logg
                 replica['source_rse_id'] = req['source_rse_id']
                 replica['dest_rse_id'] = req['dest_rse_id']
                 replica['priority'] = req['priority']
+                replica['external_id'] = req['external_id']
 
             replica['pfn'] = req['dest_url']
             replica['request_type'] = req['request_type']
