@@ -18,11 +18,11 @@
 # - Radu Carpa <radu.carpa@cern.ch>, 2021
 
 # Create the following topology:
-# +---------+       +---------+
-# |         |   1   |         |
+# +------------+       +--------------------+
+# |            |   1   |                    |
 # | T2_US_SDSC |<----->| T2_US_Caltech_Test |
-# |         |       |         |
-# +---------+       +---------+
+# |            |       |                    |
+# +------------+       +--------------------+
 
 # First, create the RSEs
 rucio-admin rse add T2_US_SDSC
@@ -68,7 +68,7 @@ rucio-admin account set-limits root T2_US_Caltech_Test -1
 rucio-admin scope add --account root --scope cms
 
 # Delegate credentials to FTS
-/usr/bin/python2.7 /usr/bin/fts-rest-delegate -vf -s https://fts:8446 -H 9999
+/usr/local/bin/fts-rest-delegate -vf -s https://fts:8446 -H 9999
 
 # Set throttler limits
 DEST_RSE_ID="$(rucio-admin rse info T2_US_Caltech_Test | grep 'rse_id' | awk '{print $2}')"
